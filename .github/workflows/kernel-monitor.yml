@@ -1,0 +1,96 @@
+name: 🔄 Kernel Monitor & Auto Build
+
+on:
+  schedule:
+    # 每6小时检查一次 (GitHub Actions 云端运行，不依赖本地电脑)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    # 也可以手动触发
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest kernel version
+        id: kernel
+        run: |
+          echo "Checking upstream kernel..."
+          LATEST=$(curl -s https://api.github.com/repos/ophub/kernel/releases/tags/kernel_stable \
+            | grep -o '"name": "[^"]*6\.[^"]*\.tar\.gz"' \
+            | sed 's/"name": "//;s/\.tar\.gz"//' | sed 's/"//g' \
+            | grep -E "^6\.(12|18)\." | sort -V | tail -1)
+          echo "Latest: $LATEST"
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Read last known version
+        id: last
+        run: |
+          LAST=$(cat .kernel_version 2>/dev/null || echo "")
+          echo "Last known: $LAST"
+          echo "known=$LAST" >> $GITHUB_OUTPUT
+
+      - name: Compare versions
+        id: compare
+        run: |
+          if [ "${{ steps.kernel.outputs.latest }}" != "${{ steps.last.outputs.known }}" ]; then
+            echo "🆕 New kernel detected!"
+            echo "trigger=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No update"
+            echo "trigger=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Save latest version
+        if: steps.compare.outputs.trigger == 'true'
+        run: |
+          echo "${{ steps.kernel.outputs.latest }}" > .kernel_version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .kernel_version
+          git commit -m "Update kernel version to ${{ steps.kernel.outputs.latest }}"
+          git push
+
+      - name: Trigger s905x2 Build
+        if: steps.compare.outputs.trigger == 'true'
+        run: |
+          echo "Triggering s905x2 build..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905x2 \
+            -f openwrt_kernel=6.12.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: Trigger s905d Build
+        if: steps.compare.outputs.trigger == 'true'
+        run: |
+          echo "Triggering s905d build..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905d \
+            -f openwrt_kernel=6.12.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: Trigger s905x3 Build
+        if: steps.compare.outputs.trigger == 'true'
+        run: |
+          echo "Triggering s905x3 build..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905x3 \
+            -f openwrt_kernel=6.12.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: Report
+        if: steps.compare.outputs.trigger == 'true'
+        run: |
+          echo "✅ All builds triggered!"
+          echo "New kernel: ${{ steps.kernel.outputs.latest }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
