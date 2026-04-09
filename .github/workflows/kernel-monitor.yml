@@ -10,7 +10,7 @@ on:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     
     steps:
       - name: Checkout repository
@@ -103,19 +103,9 @@ jobs:
           git push
 
       # ============================================
-      # 触发编译 - 6.12.y 内核
+      # 触发编译 - 6.12.y 内核 (4个设备)
       # ============================================
-      - name: 🏗️ Build s905x2 (X96-Max) 6.12.y
-        if: steps.compare_612.outputs.trigger == 'true'
-        run: |
-          echo "触发 s905x2 6.12.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905x2 \
-            -f openwrt_kernel=6.12.y \
-            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
-            --repo ${{ github.repository }}
-
-      - name: 🏗️ Build s905d (N1) 6.12.y
+      - name: 🏗️ Build s905d-N1 6.12.y
         if: steps.compare_612.outputs.trigger == 'true'
         run: |
           echo "触发 s905d 6.12.y 编译..."
@@ -125,7 +115,17 @@ jobs:
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
-      - name: 🏗️ Build s905x3 (X96-Max+) 6.12.y
+      - name: 🏗️ Build s905x2-X96Max 6.12.y
+        if: steps.compare_612.outputs.trigger == 'true'
+        run: |
+          echo "触发 s905x2 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905x2 \
+            -f openwrt_kernel=6.12.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: 🏗️ Build s905x3-X96Max+ 6.12.y
         if: steps.compare_612.outputs.trigger == 'true'
         run: |
           echo "触发 s905x3 6.12.y 编译..."
@@ -135,20 +135,32 @@ jobs:
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
-      # ============================================
-      # 触发编译 - 6.18.y 内核
-      # ============================================
-      - name: 🏗️ Build s905x2 (X96-Max) 6.18.y
-        if: steps.compare_618.outputs.trigger == 'true'
+      - name: 🏗️ Build rk3399-sw799 6.12.y
+        if: steps.compare_612.outputs.trigger == 'true'
         run: |
-          echo "触发 s905x2 6.18.y 编译..."
+          echo "触发 rk3399-sw799 6.12.y 编译..."
           gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905x2 \
-            -f openwrt_kernel=6.18.y \
+            -f openwrt_soc=rk3399 \
+            -f openwrt_kernel=6.12.y \
+            -f customize_rk3399=sw799 \
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
-      - name: 🏗️ Build s905d (N1) 6.18.y
+      - name: 🏗️ Build rk3399-tvi3315a 6.12.y
+        if: steps.compare_612.outputs.trigger == 'true'
+        run: |
+          echo "触发 rk3399-tvi3315a 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=rk3399 \
+            -f openwrt_kernel=6.12.y \
+            -f customize_rk3399=tvi3315a \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      # ============================================
+      # 触发编译 - 6.18.y 内核 (4个设备)
+      # ============================================
+      - name: 🏗️ Build s905d-N1 6.18.y
         if: steps.compare_618.outputs.trigger == 'true'
         run: |
           echo "触发 s905d 6.18.y 编译..."
@@ -158,7 +170,17 @@ jobs:
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
-      - name: 🏗️ Build s905x3 (X96-Max+) 6.18.y
+      - name: 🏗️ Build s905x2-X96Max 6.18.y
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 s905x2 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905x2 \
+            -f openwrt_kernel=6.18.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: 🏗️ Build s905x3-X96Max+ 6.18.y
         if: steps.compare_618.outputs.trigger == 'true'
         run: |
           echo "触发 s905x3 6.18.y 编译..."
@@ -168,25 +190,50 @@ jobs:
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
+      - name: 🏗️ Build rk3399-sw799 6.18.y
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 rk3399-sw799 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=rk3399 \
+            -f openwrt_kernel=6.18.y \
+            -f customize_rk3399=sw799 \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: 🏗️ Build rk3399-tvi3315a 6.18.y
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 rk3399-tvi3315a 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=rk3399 \
+            -f openwrt_kernel=6.18.y \
+            -f customize_rk3399=tvi3315a \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
       # ============================================
       # 汇总报告
       # ============================================
       - name: 📊 Build Report
         run: |
           echo "=========================================="
-          echo "   编译任务汇总"
+          echo "   🔄 内核监控 & 编译报告"
           echo "=========================================="
-          echo "6.12.y: ${{ steps.kernel_612.outputs.latest }}"
-          echo "6.18.y: ${{ steps.kernel_618.outputs.latest }}"
+          echo "📦 内核版本:"
+          echo "   6.12.y: ${{ steps.kernel_612.outputs.latest }}"
+          echo "   6.18.y: ${{ steps.kernel_618.outputs.latest }}"
           echo ""
+          echo "🏗️ 编译任务:"
           if [ "${{ steps.compare_612.outputs.trigger }}" == "true" ]; then
-            echo "✅ 已触发 6.12.y 编译 (3个设备)"
+            echo "   ✅ 6.12.y: s905d-N1, s905x2-X96Max, s905x3-X96Max+, rk3399-sw799, rk3399-tvi3315a"
           fi
           if [ "${{ steps.compare_618.outputs.trigger }}" == "true" ]; then
-            echo "✅ 已触发 6.18.y 编译 (3个设备)"
+            echo "   ✅ 6.18.y: s905d-N1, s905x2-X96Max, s905x3-X96Max+, rk3399-sw799, rk3399-tvi3315a"
           fi
           if [ "${{ steps.compare_612.outputs.trigger }}" == "false" ] && [ "${{ steps.compare_618.outputs.trigger }}" == "false" ]; then
-            echo "✅ 无新内核，无需编译"
+            echo "   ✅ 无新内核版本，无需编译"
           fi
+          echo "=========================================="
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
