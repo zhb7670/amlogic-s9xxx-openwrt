@@ -18,79 +18,175 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest kernel version
-        id: kernel
+      # ============================================
+      # 检查 6.12.y 内核
+      # ============================================
+      - name: Get latest 6.12.y kernel version
+        id: kernel_612
         run: |
-          echo "Checking upstream kernel..."
+          echo "检查 6.12.y 内核..."
           LATEST=$(curl -s https://api.github.com/repos/ophub/kernel/releases/tags/kernel_stable \
-            | grep -o '"name": "[^"]*6\.[^"]*\.tar\.gz"' \
+            | grep -o '"name": "[^"]*6\.12\.[^"]*\.tar\.gz"' \
             | sed 's/"name": "//;s/\.tar\.gz"//' | sed 's/"//g' \
-            | grep -E "^6\.(12|18)\." | sort -V | tail -1)
-          echo "Latest: $LATEST"
+            | grep -E "^6\.12\." | sort -V | tail -1)
+          echo "Latest 6.12.y: $LATEST"
           echo "latest=$LATEST" >> $GITHUB_OUTPUT
 
-      - name: Read last known version
-        id: last
+      - name: Read last known 6.12.y version
+        id: last_612
         run: |
-          LAST=$(cat .kernel_version 2>/dev/null || echo "")
-          echo "Last known: $LAST"
+          LAST=$(cat .kernel_version_6.12 2>/dev/null || echo "")
+          echo "Last known 6.12.y: $LAST"
           echo "known=$LAST" >> $GITHUB_OUTPUT
 
-      - name: Compare versions
-        id: compare
+      - name: Compare 6.12.y versions
+        id: compare_612
         run: |
-          if [ "${{ steps.kernel.outputs.latest }}" != "${{ steps.last.outputs.known }}" ]; then
-            echo "🆕 New kernel detected!"
+          if [ "${{ steps.kernel_612.outputs.latest }}" != "${{ steps.last_612.outputs.known }}" ]; then
+            echo "🆕 6.12.y 新内核: ${{ steps.kernel_612.outputs.latest }}"
             echo "trigger=true" >> $GITHUB_OUTPUT
           else
-            echo "✅ No update"
+            echo "✅ 6.12.y 无更新"
             echo "trigger=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Save latest version
-        if: steps.compare.outputs.trigger == 'true'
+      - name: Save 6.12.y version
+        if: steps.compare_612.outputs.trigger == 'true'
         run: |
-          echo "${{ steps.kernel.outputs.latest }}" > .kernel_version
+          echo "${{ steps.kernel_612.outputs.latest }}" > .kernel_version_6.12
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .kernel_version
-          git commit -m "Update kernel version to ${{ steps.kernel.outputs.latest }}"
+          git add .kernel_version_6.12
+          git commit -m "Update 6.12.y kernel to ${{ steps.kernel_612.outputs.latest }}"
           git push
 
-      - name: Trigger s905x2 Build
-        if: steps.compare.outputs.trigger == 'true'
+      # ============================================
+      # 检查 6.18.y 内核
+      # ============================================
+      - name: Get latest 6.18.y kernel version
+        id: kernel_618
         run: |
-          echo "Triggering s905x2 build..."
+          echo "检查 6.18.y 内核..."
+          LATEST=$(curl -s https://api.github.com/repos/ophub/kernel/releases/tags/kernel_stable \
+            | grep -o '"name": "[^"]*6\.18\.[^"]*\.tar\.gz"' \
+            | sed 's/"name": "//;s/\.tar\.gz"//' | sed 's/"//g' \
+            | grep -E "^6\.18\." | sort -V | tail -1)
+          echo "Latest 6.18.y: $LATEST"
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Read last known 6.18.y version
+        id: last_618
+        run: |
+          LAST=$(cat .kernel_version_6.18 2>/dev/null || echo "")
+          echo "Last known 6.18.y: $LAST"
+          echo "known=$LAST" >> $GITHUB_OUTPUT
+
+      - name: Compare 6.18.y versions
+        id: compare_618
+        run: |
+          if [ "${{ steps.kernel_618.outputs.latest }}" != "${{ steps.last_618.outputs.known }}" ]; then
+            echo "🆕 6.18.y 新内核: ${{ steps.kernel_618.outputs.latest }}"
+            echo "trigger=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ 6.18.y 无更新"
+            echo "trigger=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Save 6.18.y version
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "${{ steps.kernel_618.outputs.latest }}" > .kernel_version_6.18
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .kernel_version_6.18
+          git commit -m "Update 6.18.y kernel to ${{ steps.kernel_618.outputs.latest }}"
+          git push
+
+      # ============================================
+      # 触发编译 - 6.12.y 内核
+      # ============================================
+      - name: 🏗️ Build s905x2 (X96-Max) 6.12.y
+        if: steps.compare_612.outputs.trigger == 'true'
+        run: |
+          echo "触发 s905x2 6.12.y 编译..."
           gh workflow run "Build OpenWrt using Unifreq scripts" \
             -f openwrt_soc=s905x2 \
             -f openwrt_kernel=6.12.y \
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
-      - name: Trigger s905d Build
-        if: steps.compare.outputs.trigger == 'true'
+      - name: 🏗️ Build s905d (N1) 6.12.y
+        if: steps.compare_612.outputs.trigger == 'true'
         run: |
-          echo "Triggering s905d build..."
+          echo "触发 s905d 6.12.y 编译..."
           gh workflow run "Build OpenWrt using Unifreq scripts" \
             -f openwrt_soc=s905d \
             -f openwrt_kernel=6.12.y \
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
-      - name: Trigger s905x3 Build
-        if: steps.compare.outputs.trigger == 'true'
+      - name: 🏗️ Build s905x3 (X96-Max+) 6.12.y
+        if: steps.compare_612.outputs.trigger == 'true'
         run: |
-          echo "Triggering s905x3 build..."
+          echo "触发 s905x3 6.12.y 编译..."
           gh workflow run "Build OpenWrt using Unifreq scripts" \
             -f openwrt_soc=s905x3 \
             -f openwrt_kernel=6.12.y \
             -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
             --repo ${{ github.repository }}
 
-      - name: Report
-        if: steps.compare.outputs.trigger == 'true'
+      # ============================================
+      # 触发编译 - 6.18.y 内核
+      # ============================================
+      - name: 🏗️ Build s905x2 (X96-Max) 6.18.y
+        if: steps.compare_618.outputs.trigger == 'true'
         run: |
-          echo "✅ All builds triggered!"
-          echo "New kernel: ${{ steps.kernel.outputs.latest }}"
+          echo "触发 s905x2 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905x2 \
+            -f openwrt_kernel=6.18.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: 🏗️ Build s905d (N1) 6.18.y
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 s905d 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905d \
+            -f openwrt_kernel=6.18.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      - name: 🏗️ Build s905x3 (X96-Max+) 6.18.y
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 s905x3 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" \
+            -f openwrt_soc=s905x3 \
+            -f openwrt_kernel=6.18.y \
+            -f openwrt_repo=zhb7670/amlogic-s9xxx-openwrt \
+            --repo ${{ github.repository }}
+
+      # ============================================
+      # 汇总报告
+      # ============================================
+      - name: 📊 Build Report
+        run: |
+          echo "=========================================="
+          echo "   编译任务汇总"
+          echo "=========================================="
+          echo "6.12.y: ${{ steps.kernel_612.outputs.latest }}"
+          echo "6.18.y: ${{ steps.kernel_618.outputs.latest }}"
+          echo ""
+          if [ "${{ steps.compare_612.outputs.trigger }}" == "true" ]; then
+            echo "✅ 已触发 6.12.y 编译 (3个设备)"
+          fi
+          if [ "${{ steps.compare_618.outputs.trigger }}" == "true" ]; then
+            echo "✅ 已触发 6.18.y 编译 (3个设备)"
+          fi
+          if [ "${{ steps.compare_612.outputs.trigger }}" == "false" ] && [ "${{ steps.compare_618.outputs.trigger }}" == "false" ]; then
+            echo "✅ 无新内核，无需编译"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
