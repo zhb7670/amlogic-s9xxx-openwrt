@@ -2,15 +2,15 @@ name: 🔄 Kernel Monitor & Auto Build
 
 on:
   schedule:
-    # 每6小时检查一次 (GitHub Actions 云端运行，不依赖本地电脑)
-    - cron: '0 */6 * * *'
+    # 每天凌晨0点检查一次 (GitHub Actions 云端运行，不依赖本地电脑)
+    - cron: '0 0 * * *'
   workflow_dispatch:
     # 也可以手动触发
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,84 +106,150 @@ jobs:
           git push
 
       # ============================================
-      # 触发编译 - 6.12.y 内核 (5个设备)
+      # 触发编译 - 6.12.y 内核 (全部设备)
       # ============================================
-      - name: 🏗️ Build s905d-N1 6.12.y
+      - name: 🏗️ Build 6.12.y Amlogic devices
         if: steps.compare_612.outputs.trigger == 'true'
         run: |
-          echo "触发 s905d 6.12.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905d \
-            -f openwrt_kernel=6.12.y \
-            --repo ${{ github.repository }}
+          echo "触发 s905/s905x2/s905x3/s905d/s912/s922x/s922x-n2 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905x3 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905d -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905x2 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s922x -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s922x-n2 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s912 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
 
-      - name: 🏗️ Build s905x2-X96Max 6.12.y
+      - name: 🏗️ Build 6.12.y AllWinner/Rockchip vplus
         if: steps.compare_612.outputs.trigger == 'true'
         run: |
-          echo "触发 s905x2 6.12.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905x2 \
-            -f openwrt_kernel=6.12.y \
-            --repo ${{ github.repository }}
+          echo "触发 vplus/beikeyun/l1pro 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=vplus -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=beikeyun -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=l1pro -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
 
-      - name: 🏗️ Build s905x3-X96Max+ 6.12.y
+      - name: 🏗️ Build 6.12.y RK3566/8 devices
         if: steps.compare_612.outputs.trigger == 'true'
         run: |
-          echo "触发 s905x3 6.12.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905x3 \
-            -f openwrt_kernel=6.12.y \
-            --repo ${{ github.repository }}
+          echo "触发 r66s/r68s/rock5b/rock5c 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=r66s -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=r68s -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=rock5b -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=rock5c -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
 
-      - name: 🏗️ Build rk3399 6.12.y
+      - name: 🏗️ Build 6.12.y RK3566/8 e-series
+        if: steps.compare_612.outputs.trigger == 'true'
+        run: |
+          echo "触发 e20c/e24c/e25 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e20c -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e24c -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e25 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e52c -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e54c -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+
+      - name: 🏗️ Build 6.12.y RK3528 devices
+        if: steps.compare_612.outputs.trigger == 'true'
+        run: |
+          echo "触发 h28k/h66k/h68k/h69k 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h28k -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h66k -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h68k -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h69k -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h69k-max -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+
+      - name: 🏗️ Build 6.12.y RK3588 devices
+        if: steps.compare_612.outputs.trigger == 'true'
+        run: |
+          echo "触发 h88k/jp-tvbox/photonicat 6.12.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h88k -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h88k-v3 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=jp-tvbox -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=photonicat -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=watermelon-pi -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=yixun-rs6pro -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=zcube1-max -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=100ask-dshanpi-a1 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=ak88 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=cm3 -f openwrt_kernel=6.12.y --repo ${{ github.repository }}
+
+      - name: 🏗️ Build 6.12.y RK3399
         if: steps.compare_612.outputs.trigger == 'true'
         run: |
           echo "触发 rk3399 6.12.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=rk3399 \
-            -f openwrt_kernel=6.12.y \
-            -f customize_rk3399=tvi3315a:rk3399-tvi3315a.dtb/sw799:rk3399-bozz-sw799.dtb \
-            --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=rk3399 -f openwrt_kernel=6.12.y -f customize_rk3399=tvi3315a:rk3399-tvi3315a.dtb/sw799:rk3399-bozz-sw799.dtb --repo ${{ github.repository }}
 
       # ============================================
-      # 触发编译 - 6.18.y 内核 (5个设备)
+      # 触发编译 - 6.18.y 内核 (全部设备)
       # ============================================
-      - name: 🏗️ Build s905d-N1 6.18.y
+      - name: 🏗️ Build 6.18.y Amlogic devices
         if: steps.compare_618.outputs.trigger == 'true'
         run: |
-          echo "触发 s905d 6.18.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905d \
-            -f openwrt_kernel=6.18.y \
-            --repo ${{ github.repository }}
+          echo "触发 s905/s905x2/s905x3/s905d/s912/s922x/s922x-n2 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905x3 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905d -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905x2 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s922x -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s922x-n2 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s912 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=s905 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
 
-      - name: 🏗️ Build s905x2-X96Max 6.18.y
+      - name: 🏗️ Build 6.18.y AllWinner/Rockchip vplus
         if: steps.compare_618.outputs.trigger == 'true'
         run: |
-          echo "触发 s905x2 6.18.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905x2 \
-            -f openwrt_kernel=6.18.y \
-            --repo ${{ github.repository }}
+          echo "触发 vplus/beikeyun/l1pro 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=vplus -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=beikeyun -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=l1pro -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
 
-      - name: 🏗️ Build s905x3-X96Max+ 6.18.y
+      - name: 🏗️ Build 6.18.y RK3566/8 devices
         if: steps.compare_618.outputs.trigger == 'true'
         run: |
-          echo "触发 s905x3 6.18.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=s905x3 \
-            -f openwrt_kernel=6.18.y \
-            --repo ${{ github.repository }}
+          echo "触发 r66s/r68s/rock5b/rock5c 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=r66s -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=r68s -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=rock5b -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=rock5c -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
 
-      - name: 🏗️ Build rk3399 6.18.y
+      - name: 🏗️ Build 6.18.y RK3566/8 e-series
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 e20c/e24c/e25 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e20c -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e24c -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e25 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e52c -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=e54c -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+
+      - name: 🏗️ Build 6.18.y RK3528 devices
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 h28k/h66k/h68k/h69k 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h28k -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h66k -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h68k -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h69k -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h69k-max -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+
+      - name: 🏗️ Build 6.18.y RK3588 devices
+        if: steps.compare_618.outputs.trigger == 'true'
+        run: |
+          echo "触发 h88k/jp-tvbox/photonicat 6.18.y 编译..."
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h88k -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=h88k-v3 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=jp-tvbox -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=photonicat -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=watermelon-pi -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=yixun-rs6pro -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=zcube1-max -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=100ask-dshanpi-a1 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=ak88 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=cm3 -f openwrt_kernel=6.18.y --repo ${{ github.repository }}
+
+      - name: 🏗️ Build 6.18.y RK3399
         if: steps.compare_618.outputs.trigger == 'true'
         run: |
           echo "触发 rk3399 6.18.y 编译..."
-          gh workflow run "Build OpenWrt using Unifreq scripts" \
-            -f openwrt_soc=rk3399 \
-            -f openwrt_kernel=6.18.y \
-            -f customize_rk3399=tvi3315a:rk3399-tvi3315a.dtb/sw799:rk3399-bozz-sw799.dtb \
-            --repo ${{ github.repository }}
+          gh workflow run "Build OpenWrt using Unifreq scripts" -f openwrt_soc=rk3399 -f openwrt_kernel=6.18.y -f customize_rk3399=tvi3315a:rk3399-tvi3315a.dtb/sw799:rk3399-bozz-sw799.dtb --repo ${{ github.repository }}
 
       # ============================================
       # 汇总报告
@@ -191,7 +257,7 @@ jobs:
       - name: 📊 Build Report
         run: |
           echo "=========================================="
-          echo "   🔄 内核监控 & 编译报告"
+          echo "   🔄 内核监控 & 全设备编译报告"
           echo "=========================================="
           echo "📦 内核版本:"
           echo "   6.12.y: ${{ steps.kernel_612.outputs.latest }}"
@@ -199,10 +265,10 @@ jobs:
           echo ""
           echo "🏗️ 编译任务:"
           if [ "${{ steps.compare_612.outputs.trigger }}" == "true" ]; then
-            echo "   ✅ 6.12.y: s905d-N1, s905x2-X96Max, s905x3-X96Max+, rk3399"
+            echo "   ✅ 6.12.y: 全部34个设备"
           fi
           if [ "${{ steps.compare_618.outputs.trigger }}" == "true" ]; then
-            echo "   ✅ 6.18.y: s905d-N1, s905x2-X96Max, s905x3-X96Max+, rk3399"
+            echo "   ✅ 6.18.y: 全部34个设备"
           fi
           if [ "${{ steps.compare_612.outputs.trigger }}" == "false" ] && [ "${{ steps.compare_618.outputs.trigger }}" == "false" ]; then
             echo "   ✅ 无新内核版本，无需编译"
