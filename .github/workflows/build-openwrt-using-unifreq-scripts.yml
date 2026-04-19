@@ -8,6 +8,9 @@ name: Build OpenWrt using Unifreq scripts
 
 on:
   repository_dispatch:
+    types: [build]
+  workflow_dispatch_review:
+    types: [approval]
   workflow_dispatch:
     inputs:
       openwrt_soc:
@@ -127,7 +130,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    if: ${{ github.event.repository.owner.id == github.event.sender.id }}
+    # if: ${{ github.event.repository.owner.id == github.event.sender.id }}  # 注释掉以允许workflow_dispatch触发
 
     steps:
       - name: Checkout
@@ -263,3 +266,4 @@ jobs:
             ### Applicable Platform
             - 🐧 `arm64`
             - 🐋 Docker image: https://hub.docker.com/u/ophub
+
