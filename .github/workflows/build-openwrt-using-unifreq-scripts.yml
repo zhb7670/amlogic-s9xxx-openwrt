@@ -121,7 +121,7 @@ on:
           - angel
           - yourname
   schedule:
-    - cron: '0 18 * * *'  # 每天18:00 UTC检查上游kernel更新
+    - cron: '40 16 * * *'  # 每天22:40 孟加拉时间 (UTC+6) = 16:40 UTC
 
 env:
   TZ: Etc/UTC
@@ -265,3 +265,4 @@ jobs:
             ### Applicable Platform
             - 🐧 `arm64`
             - 🐋 Docker image: https://hub.docker.com/u/ophub
+
