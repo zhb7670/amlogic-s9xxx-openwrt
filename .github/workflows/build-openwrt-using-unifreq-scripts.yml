@@ -120,6 +120,8 @@ on:
           - ophub
           - angel
           - yourname
+  schedule:
+    - cron: '0 18 * * *'  # 每天18:00 UTC检查上游kernel更新
 
 env:
   TZ: Etc/UTC
@@ -127,7 +129,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    if: ${{ github.event.repository.owner.id == github.event.sender.id }}
+    if: ${{ github.event.repository.owner.id == github.event.sender.id || github.event_name == 'schedule' }}
 
     steps:
       - name: Checkout
@@ -221,7 +223,7 @@ jobs:
               -o "${armsr_tarfile_path}/${openwrt_filename}"
           [[ "${?}" -ne "0" ]] && echo "Error: Download failed." && exit 1
 
-          echo "build_tag=OpenWrt_armv8_${{ inputs.openwrt_storage }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "build_tag=OpenWrt_armv8_${{ inputs.openwrt_storage || 'save' }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Package OpenWrt Firmware
@@ -229,14 +231,14 @@ jobs:
         if: ${{ steps.download.outputs.status == 'success' && !cancelled() }}
         env:
           OPENWRT_ARMSR: opt/download/*rootfs.tar.gz
-          PACKAGE_SOC: ${{ inputs.openwrt_soc }}
-          KERNEL_REPO_URL: ${{ inputs.kernel_repo }}
-          KERNEL_VERSION_NAME: ${{ inputs.openwrt_kernel }}
-          KERNEL_AUTO_LATEST: ${{ inputs.auto_kernel }}
-          OPENWRT_IP: ${{ inputs.openwrt_ip }}
-          CUSTOMIZE_RK3399: ${{ inputs.customize_rk3399 }}
-          SCRIPT_DIY_PATH: ${{ inputs.script_diy_path }}
-          WHOAMI: ${{ inputs.builder_name }}
+          PACKAGE_SOC: ${{ inputs.openwrt_soc || 'all' }}
+          KERNEL_REPO_URL: ${{ inputs.kernel_repo || 'ophub/kernel' }}
+          KERNEL_VERSION_NAME: ${{ inputs.openwrt_kernel || '6.12.y_6.18.y' }}
+          KERNEL_AUTO_LATEST: ${{ inputs.auto_kernel || 'true' }}
+          OPENWRT_IP: ${{ inputs.openwrt_ip || '192.168.1.1' }}
+          CUSTOMIZE_RK3399: ${{ inputs.customize_rk3399 || 'none' }}
+          SCRIPT_DIY_PATH: ${{ inputs.script_diy_path || '' }}
+          WHOAMI: ${{ inputs.builder_name || 'ophub' }}
 
       - name: Upload OpenWrt Firmware to Release
         uses: ncipollo/release-action@main
