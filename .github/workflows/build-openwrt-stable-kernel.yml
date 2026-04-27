@@ -1,0 +1,261 @@
+#==========================================================================
+# Description: Build OpenWrt with STABLE kernel (using ophub/amlogic-s9xxx-openwrt)
+# 与原有的 flippy 内核工作流并存，此工作流使用 kernel_stable 获取最新内核
+#==========================================================================
+
+name: Build OpenWrt with Stable Kernel
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      openwrt_board:
+        description: "Select device board"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - amlogic
+          - rockchip
+          - allwinner
+          - rockchip50
+          - rockchip50_100
+          - first50
+          - range50_100
+          - range100_150
+          - last20
+          - a311d-oes_s922x-oes-plus_wxy-oect
+          - nsy-g16-plus_nsy-g68-plus_bdy-g18-pro
+          - s905d_s905x3_s912_s922x-ct2000
+          - a311d
+          - beikeyun
+          - cm3588-nas
+          - h28k
+          - h66k
+          - h68k
+          - h69k
+          - h88k
+          - h88k-v3
+          - l1pro
+          - nanopc-t4
+          - nanopc-t6
+          - nanopi-r5c
+          - nanopi-r5s
+          - photonicat
+          - r66s
+          - r68s
+          - rock5b
+          - rock5c
+          - s905
+          - s905d
+          - s905x
+          - s905x2
+          - s905x3
+          - s912
+          - s922x
+          - vplus
+      openwrt_kernel:
+        description: "Select kernel version"
+        required: false
+        default: "6.12.y_6.18.y"
+        type: choice
+        options:
+          - 5.10.y
+          - 5.15.y
+          - 6.1.y
+          - 6.6.y
+          - 6.12.y
+          - 6.18.y
+          - 5.10.y_5.15.y
+          - 6.1.y_6.6.y
+          - 6.12.y_6.18.y
+          - 6.1.y_6.12.y
+          - 6.1.y_6.18.y
+      auto_kernel:
+        description: "Auto use the latest kernel"
+        required: false
+        default: true
+        type: boolean
+      kernel_repo:
+        description: "Set the kernel repository"
+        required: false
+        default: "ophub/kernel"
+        type: choice
+        options:
+          - ophub/kernel
+      kernel_usage:
+        description: "Set kernel tag (stable=latest kernels, flippy=flippy builds)"
+        required: false
+        default: "stable"
+        type: choice
+        options:
+          - stable
+          - flippy
+          - beta
+      openwrt_ip:
+        description: "Set OpenWrt default IP address."
+        required: false
+        default: "192.168.1.1"
+      openwrt_storage:
+        description: "Select image storage type."
+        required: false
+        default: "save"
+        type: choice
+        options:
+          - save
+          - temp
+      builder_name:
+        description: "Set OpenWrt builder signature."
+        required: false
+        default: "ophub"
+        type: choice
+        options:
+          - ophub
+          - angel
+          - yourname
+  schedule:
+    - cron: '50 16 * * *'  # 比原 flippy 工作流晚10分钟，避免资源冲突
+
+env:
+  TZ: Etc/UTC
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.repository.owner.id == github.event.sender.id || github.event_name == 'schedule' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Initialize the build environment
+        id: init
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          docker rmi -f $(docker images -q) 2>/dev/null || true
+          [[ -n "${AGENT_TOOLSDIRECTORY}" ]] && sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android 2>/dev/null
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo -E apt-get -y update
+          sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
+          sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-make-openwrt-depends)
+          sudo -E systemctl daemon-reload
+          #sudo -E apt-get -y full-upgrade
+          sudo -E apt-get -y autoremove --purge
+          sudo -E apt-get clean
+          sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
+          sudo rm -rf ~/{.cargo,.dotnet,.rustup}
+          sudo -E timedatectl set-timezone "${TZ:-Etc/UTC}"
+          sudo -E ntpdate ntp.ubuntu.com 0.pool.ntp.org || true
+          sudo -E timedatectl set-ntp true
+          date -u
+          timedatectl status || true
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Create virtual disk for extended storage
+        run: |
+          mnt_size=$(expr $(df -h /mnt | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 1)
+          root_size=$(expr $(df -h / | tail -1 | awk '{print $4}' | sed 's/[[:alpha:]]//g' | sed 's/\..*//') - 4)
+          sudo truncate -s "${mnt_size}"G /mnt/mnt.img
+          sudo truncate -s "${root_size}"G /root.img
+          sudo losetup /dev/loop6 /mnt/mnt.img
+          sudo losetup /dev/loop7 /root.img
+          sudo pvcreate /dev/loop6
+          sudo pvcreate /dev/loop7
+          sudo vgcreate github /dev/loop6 /dev/loop7
+          sudo lvcreate -n runner -l 100%FREE github
+          sudo mkfs.xfs -f -i sparse=0 -b size=4096 /dev/github/runner
+          sudo mkdir -p /builder
+          sudo mount /dev/github/runner /builder
+          sudo chown -R runner:runner /builder
+          df -Th
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Download OpenWrt rootfs file
+        id: download
+        working-directory: /builder
+        if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
+        run: |
+          # Prepare download directory
+          armsr_tarfile_path="opt/download"
+          [[ -d "${armsr_tarfile_path}" ]] || mkdir -p ${armsr_tarfile_path}
+          sudo rm -rf /opt && sudo ln -sf /builder/opt /opt
+          ln -sf /builder/opt ${{ github.workspace }}/opt
+
+          # Query the latest release asset via GitHub API
+          latest_version=$(curl -s \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              https://api.github.com/repos/${{ github.repository }}/releases?per_page=20 | \
+              jq -r --arg RTK "OpenWrt_lede_" \
+              --arg BOARD "-rootfs.tar.gz" \
+              '[.[] | select(.tag_name | contains($RTK))] |
+              map(.assets[] | select(.name | endswith($BOARD))) |
+              sort_by(.updated_at) |
+              reverse |
+              .[0] |
+              {data: .updated_at, url: .url, name: .name}')
+
+          [[ -z "${latest_version}" || "${latest_version}" == "null" ]] && {
+              echo "Error: Failed to resolve OpenWrt rootfs download URL."
+              exit 1
+          }
+
+          # Extract download URL and filename
+          latest_url="$(echo ${latest_version} | jq -r '.url')"
+          openwrt_filename="$(echo ${latest_version} | jq -r '.name')"
+
+          # Download asset via GitHub API (binary stream)
+          echo "Downloading: ${openwrt_filename}"
+          curl -fsSL \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/octet-stream" \
+              "${latest_url}" \
+              -o "${armsr_tarfile_path}/${openwrt_filename}"
+          [[ "${?}" -ne "0" ]] && echo "Error: Download failed." && exit 1
+
+          echo "build_tag=OpenWrt_armv8_stable_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Package OpenWrt with Stable Kernel
+        uses: ophub/amlogic-s9xxx-openwrt@main
+        if: ${{ steps.download.outputs.status == 'success' && !cancelled() }}
+        with:
+          openwrt_path: opt/download/*rootfs.tar.gz
+          openwrt_ip: ${{ inputs.openwrt_ip || '192.168.1.1' }}
+          openwrt_board: ${{ inputs.openwrt_board || 'all' }}
+          openwrt_kernel: ${{ inputs.openwrt_kernel || '6.12.y_6.18.y' }}
+          auto_kernel: ${{ inputs.auto_kernel || 'true' }}
+          kernel_repo: ${{ inputs.kernel_repo || 'ophub/kernel' }}
+          kernel_usage: ${{ inputs.kernel_usage || 'stable' }}
+          builder_name: ${{ inputs.builder_name || 'ophub' }}
+
+      - name: Upload OpenWrt Firmware to Release
+        uses: ncipollo/release-action@main
+        if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
+        with:
+          tag: ${{ env.build_tag }}
+          artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
+          allowUpdates: true
+          removeArtifacts: false
+          replacesArtifacts: true
+          makeLatest: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### OpenWrt Image Information (Stable Kernel)
+            - **内核来源**: `kernel_stable` (最新主线稳定内核)
+            - Default IP: `192.168.1.1`
+            - Default username: `root`
+            - Default password: `password`
+            - Default WIFI name: `OpenWrt`
+            - Default WIFI password: `none`
+            ### Install to EMMC
+            - Login to OpenWrt → `System` → `Amlogic Service` → `Install OpenWrt`
+            ### OpenWrt source code
+            - [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede)
+            ### Applicable Platform
+            - 🐧 `arm64`
+            - 🐋 Docker image: https://hub.docker.com/u/ophub
