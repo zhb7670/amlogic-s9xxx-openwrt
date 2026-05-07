@@ -1,12 +1,11 @@
 #==========================================================================
-# Description: Build OpenWrt with STABLE kernel (using ophub/amlogic-s9xxx-openwrt)
-# 与原有的 flippy 内核工作流并存，此工作流使用 kernel_stable 获取最新内核
+# Description: Build OpenWrt with STABLE kernel (optimized version)
+# 只在上游内核更新时触发构建，每个设备+内核版本只保留最新固件
 #==========================================================================
 
-name: Build OpenWrt with Stable Kernel
+name: Build OpenWrt with Stable Kernel (Optimized)
 
 on:
-  repository_dispatch:
   workflow_dispatch:
     inputs:
       openwrt_board:
@@ -97,14 +96,6 @@ on:
         description: "Set OpenWrt default IP address."
         required: false
         default: "192.168.1.1"
-      openwrt_storage:
-        description: "Select image storage type."
-        required: false
-        default: "save"
-        type: choice
-        options:
-          - save
-          - temp
       builder_name:
         description: "Set OpenWrt builder signature."
         required: false
@@ -114,16 +105,91 @@ on:
           - ophub
           - angel
           - yourname
+      force_build:
+        description: "Force build even if kernel not updated"
+        required: false
+        default: false
+        type: boolean
+  # 每天检查一次内核更新，但不一定构建
   schedule:
-    - cron: '50 16 * * *'  # 比原 flippy 工作流晚10分钟，避免资源冲突
+    - cron: '30 16 * * *'
 
 env:
   TZ: Etc/UTC
 
 jobs:
+  # 检查是否需要构建
+  check-kernel-update:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      kernel_versions: ${{ steps.check.outputs.kernel_versions }}
+    
+    steps:
+      - name: Check kernel updates
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_BUILD: ${{ inputs.force_build || false }}
+        run: |
+          # 获取最新的 stable 内核版本信息
+          KERNEL_REPO="${{ inputs.kernel_repo || 'ophub/kernel' }}"
+          KERNEL_USAGE="${{ inputs.kernel_usage || 'stable' }}"
+          
+          echo "Checking kernel updates from ${KERNEL_REPO} (tag: ${KERNEL_USAGE})..."
+          
+          # 获取内核仓库的 release 信息
+          KERNEL_INFO=$(curl -s \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${KERNEL_REPO}/releases/tags/kernel_${KERNEL_USAGE}" 2>/dev/null || echo "{}")
+          
+          # 提取内核版本和发布时间
+          KERNEL_VERSION=$(echo "${KERNEL_INFO}" | jq -r '.tag_name // "unknown"')
+          KERNEL_PUBLISHED=$(echo "${KERNEL_INFO}" | jq -r '.published_at // "1970-01-01T00:00:00Z"')
+          KERNEL_PUBLISHED_TS=$(date -d "${KERNEL_PUBLISHED}" +%s 2>/dev/null || echo "0")
+          
+          echo "Latest kernel: ${KERNEL_VERSION}"
+          echo "Published at: ${KERNEL_PUBLISHED}"
+          
+          # 获取当前仓库的最新 release 信息
+          CURRENT_RELEASE=$(curl -s \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases?per_page=1" 2>/dev/null | jq -r '.[0] // {}')
+          
+          CURRENT_RELEASE_PUBLISHED=$(echo "${CURRENT_RELEASE}" | jq -r '.published_at // "1970-01-01T00:00:00Z"')
+          CURRENT_RELEASE_PUBLISHED_TS=$(date -d "${CURRENT_RELEASE_PUBLISHED}" +%s 2>/dev/null || echo "0")
+          
+          echo "Current release published at: ${CURRENT_RELEASE_PUBLISHED}"
+          
+          # 判断是否需要构建
+          # 条件1: 强制构建
+          # 条件2: 内核发布时间晚于当前 release 发布时间（内核有更新）
+          # 条件3: 手动触发（非定时任务）
+          
+          SHOULD_BUILD="false"
+          
+          if [[ "${FORCE_BUILD}" == "true" ]]; then
+            echo "Force build requested"
+            SHOULD_BUILD="true"
+          elif [[ "${KERNEL_PUBLISHED_TS}" -gt "${CURRENT_RELEASE_PUBLISHED_TS}" ]]; then
+            echo "Kernel updated after last release, need to build"
+            SHOULD_BUILD="true"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual trigger, will build"
+            SHOULD_BUILD="true"
+          else
+            echo "No kernel update detected, skipping build"
+          fi
+          
+          echo "should_build=${SHOULD_BUILD}" >> ${GITHUB_OUTPUT}
+          echo "kernel_versions=${KERNEL_VERSION}" >> ${GITHUB_OUTPUT}
+
   build:
+    needs: check-kernel-update
+    if: needs.check-kernel-update.outputs.should_build == 'true'
     runs-on: ubuntu-24.04
-    if: ${{ github.event.repository.owner.id == github.event.sender.id || github.event_name == 'schedule' }}
 
     steps:
       - name: Checkout
@@ -143,7 +209,6 @@ jobs:
           sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
           sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-make-openwrt-depends)
           sudo -E systemctl daemon-reload
-          #sudo -E apt-get -y full-upgrade
           sudo -E apt-get -y autoremove --purge
           sudo -E apt-get clean
           sudo sed -i '/NVM_DIR/d;/skel/d' /root/{.bashrc,.profile}
@@ -177,7 +242,6 @@ jobs:
       - name: Download OpenWrt rootfs file
         id: download
         working-directory: /builder
-        if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
         run: |
           # Prepare download directory
           armsr_tarfile_path="opt/download"
@@ -217,12 +281,13 @@ jobs:
               -o "${armsr_tarfile_path}/${openwrt_filename}"
           [[ "${?}" -ne "0" ]] && echo "Error: Download failed." && exit 1
 
+          # 生成构建标签：只用年月，不包含每日编号
           echo "build_tag=OpenWrt_armv8_stable_$(date +"%Y.%m")" >> ${GITHUB_ENV}
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Package OpenWrt with Stable Kernel
         uses: ophub/amlogic-s9xxx-openwrt@main
-        if: ${{ steps.download.outputs.status == 'success' && !cancelled() }}
+        if: steps.download.outputs.status == 'success'
         with:
           openwrt_path: opt/download/*rootfs.tar.gz
           openwrt_ip: ${{ inputs.openwrt_ip || '192.168.1.1' }}
@@ -233,9 +298,112 @@ jobs:
           kernel_usage: ${{ inputs.kernel_usage || 'stable' }}
           builder_name: ${{ inputs.builder_name || 'ophub' }}
 
+      - name: Cleanup old builds for same device+kernel
+        id: cleanup
+        if: env.PACKAGED_STATUS == 'success'
+        run: |
+          # 对每个设备+内核版本组合，只保留最新的固件
+          # 固件命名格式: openwrt_lede_<platform>_<device>_k<version>_<date>.img.gz
+          
+          OUTPUT_PATH="${{ env.PACKAGED_OUTPUTPATH }}"
+          echo "Cleaning up old builds in ${OUTPUT_PATH}"
+          
+          # 创建临时目录存放要保留的文件
+          mkdir -p /tmp/keep
+          
+          # 按设备+内核分组，只保留最新
+          find "${OUTPUT_PATH}" -name "*.img.gz" -type f | while read file; do
+            # 提取设备和内核版本（去掉日期部分）
+            # 例如: openwrt_lede_amlogic_s905x3_k6.12.85_2026.05.01.img.gz
+            # -> openwrt_lede_amlogic_s905x3_k6.12.85
+            prefix=$(basename "${file}" | sed 's/_[0-9]\+\.[0-9]\+\.img\.gz//')
+            echo "${prefix} ${file}" >> /tmp/all_files.txt
+          done
+          
+          # 对每个前缀只保留最新的文件
+          if [ -f /tmp/all_files.txt ]; then
+            sort /tmp/all_files.txt | \
+            awk '{
+              prefix=$1;
+              file=$2;
+              if (prefix != last_prefix && last_file != "") {
+                print last_file;
+              }
+              last_prefix=prefix;
+              last_file=file;
+            } END {
+              if (last_file != "") print last_file;
+            }' > /tmp/keep_files.txt
+            
+            # 移动要保留的文件到临时目录
+            while read keep_file; do
+              [ -f "${keep_file}" ] && mv "${keep_file}" /tmp/keep/
+            done < /tmp/keep_files.txt
+            
+            # 删除旧的固件文件
+            rm -f "${OUTPUT_PATH}"/*.img.gz 2>/dev/null || true
+            
+            # 移回保留的文件
+            mv /tmp/keep/*.img.gz "${OUTPUT_PATH}/" 2>/dev/null || true
+          fi
+          
+          # 统计保留的文件数量
+          KEEP_COUNT=$(ls "${OUTPUT_PATH}"/*.img.gz 2>/dev/null | wc -l)
+          echo "Kept ${KEEP_COUNT} firmware files (one per device+kernel)"
+          echo "keep_count=${KEEP_COUNT}" >> ${GITHUB_OUTPUT}
+
+      - name: Delete old release assets before upload
+        if: env.PACKAGED_STATUS == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 删除当前 release 中旧的固件资产
+          # 只保留一个设备+内核版本的最新固件
+          
+          RELEASE_TAG="${{ env.build_tag }}"
+          REPO="${{ github.repository }}"
+          
+          echo "Cleaning old assets from release: ${RELEASE_TAG}"
+          
+          # 获取 release ID
+          RELEASE_ID=$(curl -s \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${REPO}/releases/tags/${RELEASE_TAG}" | jq -r '.id // empty')
+          
+          if [ -n "${RELEASE_ID}" ]; then
+            echo "Release ID: ${RELEASE_ID}"
+            
+            # 获取当前所有 assets
+            ASSETS=$(curl -s \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "https://api.github.com/repos/${REPO}/releases/${RELEASE_ID}" | jq -r '.assets[] | .id')
+            
+            # 获取新固件文件名列表
+            NEW_FILES=$(ls ${{ env.PACKAGED_OUTPUTPATH }}/*.img.gz 2>/dev/null | xargs -n1 basename)
+            
+            # 删除不在新列表中的旧 assets
+            for ASSET_ID in ${ASSETS}; do
+              ASSET_NAME=$(curl -s \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                "https://api.github.com/repos/${REPO}/releases/assets/${ASSET_ID}" | jq -r '.name')
+              
+              # 如果这个 asset 不在新固件列表中，删除它
+              if ! echo "${NEW_FILES}" | grep -q "^${ASSET_NAME}$"; then
+                echo "Deleting old asset: ${ASSET_NAME}"
+                curl -s -X DELETE \
+                  -H "Accept: application/vnd.github+json" \
+                  -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                  "https://api.github.com/repos/${REPO}/releases/assets/${ASSET_ID}" || true
+              fi
+            done
+          fi
+
       - name: Upload OpenWrt Firmware to Release
         uses: ncipollo/release-action@main
-        if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
+        if: env.PACKAGED_STATUS == 'success'
         with:
           tag: ${{ env.build_tag }}
           artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
@@ -247,6 +415,7 @@ jobs:
           body: |
             ### OpenWrt Image Information (Stable Kernel)
             - **内核来源**: `kernel_stable` (最新主线稳定内核)
+            - **构建策略**: 仅在上游内核更新时触发，每个设备+内核版本只保留最新固件
             - Default IP: `192.168.1.1`
             - Default username: `root`
             - Default password: `password`
