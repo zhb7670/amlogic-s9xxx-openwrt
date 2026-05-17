@@ -144,13 +144,16 @@ jobs:
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             "https://api.github.com/repos/${KERNEL_REPO}/releases/tags/kernel_${KERNEL_USAGE}" 2>/dev/null || echo "{}")
           
-          # 提取内核版本和发布时间
+          # 提取内核版本
           KERNEL_VERSION=$(echo "${KERNEL_INFO}" | jq -r '.tag_name // "unknown"')
-          KERNEL_PUBLISHED=$(echo "${KERNEL_INFO}" | jq -r '.published_at // "1970-01-01T00:00:00Z"')
-          KERNEL_PUBLISHED_TS=$(date -d "${KERNEL_PUBLISHED}" +%s 2>/dev/null || echo "0")
+          echo "Latest kernel tag: ${KERNEL_VERSION}"
           
-          echo "Latest kernel: ${KERNEL_VERSION}"
-          echo "Published at: ${KERNEL_PUBLISHED}"
+          # 获取内核包的最新更新时间（而非 Release 的 published_at）
+          # ophub/kernel 的 kernel_stable Release 会持续添加新内核包，
+          # 但 Release 的 published_at 不会更新，所以需要检查具体内核文件的时间
+          KERNEL_LATEST_ASSET_TS=$(echo "${KERNEL_INFO}" | jq -r '[.assets[].updated_at] | sort | reverse | .[0] // "1970-01-01T00:00:00Z"')
+          KERNEL_LATEST_ASSET_TS_EPOCH=$(date -d "${KERNEL_LATEST_ASSET_TS}" +%s 2>/dev/null || echo "0")
+          echo "Latest kernel asset updated at: ${KERNEL_LATEST_ASSET_TS}"
           
           # 获取当前仓库的最新 release 信息
           CURRENT_RELEASE=$(curl -s \
@@ -160,12 +163,11 @@ jobs:
           
           CURRENT_RELEASE_PUBLISHED=$(echo "${CURRENT_RELEASE}" | jq -r '.published_at // "1970-01-01T00:00:00Z"')
           CURRENT_RELEASE_PUBLISHED_TS=$(date -d "${CURRENT_RELEASE_PUBLISHED}" +%s 2>/dev/null || echo "0")
-          
           echo "Current release published at: ${CURRENT_RELEASE_PUBLISHED}"
           
           # 判断是否需要构建
           # 条件1: 强制构建
-          # 条件2: 内核发布时间晚于当前 release 发布时间（内核有更新）
+          # 条件2: 内核包的最新更新时间晚于当前 release 发布时间（内核有更新）
           # 条件3: 手动触发（非定时任务）
           
           SHOULD_BUILD="false"
@@ -173,8 +175,8 @@ jobs:
           if [[ "${FORCE_BUILD}" == "true" ]]; then
             echo "Force build requested"
             SHOULD_BUILD="true"
-          elif [[ "${KERNEL_PUBLISHED_TS}" -gt "${CURRENT_RELEASE_PUBLISHED_TS}" ]]; then
-            echo "Kernel updated after last release, need to build"
+          elif [[ "${KERNEL_LATEST_ASSET_TS_EPOCH}" -gt "${CURRENT_RELEASE_PUBLISHED_TS}" ]]; then
+            echo "Kernel assets updated after last release, need to build"
             SHOULD_BUILD="true"
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "Manual trigger, will build"
