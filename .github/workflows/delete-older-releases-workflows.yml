@@ -106,7 +106,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Delete releases and workflows runs
-        uses: zhb7670/delete-releases-workflows@main
+        uses: dev-drprasad/delete-older-releases@v0.3.2
         with:
           delete_releases: ${{ inputs.delete_releases }}
           delete_tags: ${{ inputs.delete_tags }}
