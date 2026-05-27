@@ -124,7 +124,7 @@ CONFIG_PACKAGE_docker-compose=y
 
 # filebrowser-go (用户指定)
 CONFIG_PACKAGE_luci-app-filebrowser-go=y
-CONFIG_PACKAGE_filebrowser-go=y
+CONFIG_PACKAGE_filebrowser=y
 
 # PassWall (推荐，功能最全)
 CONFIG_PACKAGE_luci-app-passwall=y
