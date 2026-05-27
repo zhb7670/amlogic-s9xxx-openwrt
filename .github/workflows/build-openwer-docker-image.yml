@@ -1,5 +1,5 @@
 #=====================================================================================
-# https://github.com/ophub/amlogic-s9xxx-openwrt
+# https://github.com/zhb7670/amlogic-s9xxx-openwrt
 # Description: Build and publish OpenWrt Docker image
 # Build and Push to: https://hub.docker.com/
 #=====================================================================================
@@ -111,7 +111,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Upload packaged OpenWrt to Release
-        uses: ophub/upload-to-release@main
+        uses: zhb7670/upload-to-release@main
         if: ${{ steps.make.outputs.status == 'success' && !cancelled() }}
         with:
           tag: ${{ steps.down.outputs.build_tag }}

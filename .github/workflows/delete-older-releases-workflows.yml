@@ -1,5 +1,5 @@
 #==========================================================================
-# https://github.com/ophub/amlogic-s9xxx-openwrt
+# https://github.com/zhb7670/amlogic-s9xxx-openwrt
 # Description: Delete older releases and workflows runs
 #==========================================================================
 
@@ -106,7 +106,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Delete releases and workflows runs
-        uses: ophub/delete-releases-workflows@main
+        uses: zhb7670/delete-releases-workflows@main
         with:
           delete_releases: ${{ inputs.delete_releases }}
           delete_tags: ${{ inputs.delete_tags }}

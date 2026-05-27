@@ -1,7 +1,7 @@
 #==========================================================================
 # Description: Build OpenWrt using Unifreq scripts
 # Copyright (C) 2021 https://github.com/unifreq/openwrt_packit
-# Copyright (C) 2021 https://github.com/ophub/flippy-openwrt-actions
+# Copyright (C) 2021 https://github.com/zhb7670/flippy-openwrt-actions
 #==========================================================================
 
 name: Build OpenWrt using Unifreq scripts
@@ -227,7 +227,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Package OpenWrt Firmware
-        uses: ophub/flippy-openwrt-actions@main
+        uses: zhb7670/flippy-openwrt-actions@main
         if: ${{ steps.download.outputs.status == 'success' && !cancelled() }}
         env:
           OPENWRT_ARMSR: opt/download/*rootfs.tar.gz
@@ -241,7 +241,7 @@ jobs:
           WHOAMI: ${{ inputs.builder_name || 'ophub' }}
 
       - name: Upload OpenWrt Firmware to Release
-        uses: ophub/upload-to-release@main
+        uses: zhb7670/upload-to-release@main
         if: ${{ env.PACKAGED_STATUS == 'success' && !cancelled() }}
         with:
           tag: ${{ env.build_tag }}

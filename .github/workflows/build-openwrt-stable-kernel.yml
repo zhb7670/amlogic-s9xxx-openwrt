@@ -288,7 +288,7 @@ jobs:
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Package OpenWrt with Stable Kernel
-        uses: ophub/amlogic-s9xxx-openwrt@main
+        uses: zhb7670/amlogic-s9xxx-openwrt@main
         if: steps.download.outputs.status == 'success'
         with:
           openwrt_path: opt/download/*rootfs.tar.gz

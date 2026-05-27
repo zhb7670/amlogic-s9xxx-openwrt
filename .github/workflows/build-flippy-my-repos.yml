@@ -1,7 +1,7 @@
 #==========================================================================
 # Description: Build OpenWrt using Unifreq scripts
 # Copyright (C) 2021 https://github.com/unifreq/openwrt_packit
-# Copyright (C) 2021 https://github.com/ophub/flippy-openwrt-actions
+# Copyright (C) 2021 https://github.com/zhb7670/flippy-openwrt-actions
 #==========================================================================
 
 name: 🏠 Flippy-Only-MyRepos (S905x2-N1)
