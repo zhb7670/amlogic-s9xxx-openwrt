@@ -414,6 +414,7 @@ jobs:
           replacesArtifacts: true
           makeLatest: false
           token: ${{ secrets.GITHUB_TOKEN }}
+          skipIfReleaseExists: true
           body: |
             ### OpenWrt Image Information (Stable Kernel)
             - **内核来源**: `kernel_stable` (最新主线稳定内核)
