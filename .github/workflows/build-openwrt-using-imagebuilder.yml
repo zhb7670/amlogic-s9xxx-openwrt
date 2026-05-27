@@ -406,7 +406,6 @@ jobs:
           replacesArtifacts: true
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          skipIfReleaseExists: true
           body: |
             ### OpenWrt Image Information
             - Default IP: `192.168.1.1`
