@@ -394,7 +394,7 @@ jobs:
           ln -sf /builder/openwrt /home/runner/work/_actions/zhb7670/amlogic-s9xxx-openwrt/main/openwrt
 
           # Export build metadata
-          echo "build_tag=OpenWrt_${{ inputs.source_branch }}_${{ inputs.openwrt_storage }}_$(date +"%Y.%m")" >> ${GITHUB_ENV}
+          echo "build_tag=OpenWrt_${{ inputs.source_branch }}_${{ inputs.openwrt_storage }}_$(date +"%Y.%m.%d")" >> ${GITHUB_ENV}
           echo -e "REPO_URL: [ ${REPO_URL} ]\nREPO_BRANCH: [ ${REPO_BRANCH} ]\nREPO_NAME: [ ${REPO_NAME} ]"
           df -hT ${PWD}
           echo "REPO_URL=${REPO_URL}" >> ${GITHUB_ENV}
@@ -496,7 +496,7 @@ jobs:
           replacesArtifacts: true
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          skipIfReleaseExists: true
+          skipIfReleaseExists: false
 
       - name: Package OpenWrt for target boards
         if: ${{ steps.clean.outputs.status == 'success' && !cancelled() }}
@@ -522,7 +522,7 @@ jobs:
           replacesArtifacts: true
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          skipIfReleaseExists: true
+          skipIfReleaseExists: false
           body: |
             ### OpenWrt Image Information
             - Default IP: `192.168.1.1`
