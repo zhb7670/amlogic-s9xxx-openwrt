@@ -11,6 +11,10 @@
 
 # PassWall 依赖包 - 必须在 feeds update 前克隆
 git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages package/passwall-packages
+# ↓ 新增内容 ↓
+# ssr-plus 依赖包 - helloworld 源
+git clone --depth=1 https://github.com/fw876/helloworld.git package/helloworld
+
 
 # other
 # rm -rf package/lean/{samba4,luci-app-samba4,luci-app-ttyd}
