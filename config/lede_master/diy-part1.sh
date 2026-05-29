@@ -13,7 +13,11 @@
 git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages package/passwall-packages
 # ↓ 新增内容 ↓
 # ssr-plus 依赖包 - helloworld 源
-git clone --depth=1 https://github.com/fw876/helloworld.git package/helloworld
+# git clone --depth=1 https://github.com/fw876/helloworld.git package/helloworld
+# MosDNS v5 - DNS 分流器
+git clone --depth=1 https://github.com/sbwml/luci-app-mosdns package/mosdns
+git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
+
 
 
 # other
