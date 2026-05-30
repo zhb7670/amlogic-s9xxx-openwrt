@@ -455,6 +455,194 @@ jobs:
           cd openwrt/
           ${{ github.workspace }}/${DIY_P2_SH} "${{ inputs.openwrt_ip }}" "${{ inputs.use_ccache }}"
 
+      - name: 注入手搓的 Verysync 和 VSFTPD 高级插件
+        run: |
+          cd openwrt || cd lede
+          mkdir -p files/etc/config
+          mkdir -p files/etc/init.d
+          mkdir -p files/usr/share/luci/menu.d
+          mkdir -p files/usr/share/rpcd/acl.d
+          mkdir -p files/www/luci-static/resources/view/nas
+
+          cat << 'EOF' > files/etc/config/verysync
+          config verysync 'main'
+              option enabled '1'
+              option port '8886'
+              option config_dir '/mnt/mmcblk2p4/verysync/'
+          EOF
+
+          cat << 'EOF' > files/etc/init.d/verysync
+          #!/bin/sh /etc/rc.common
+          USE_PROCD=1
+          START=99
+          start_service() {
+              config_load verysync
+              local enabled port config_dir
+              config_get_bool enabled main enabled 0
+              config_get port main port "8886"
+              config_get config_dir main config_dir "/mnt/mmcblk2p4/verysync/"
+              [ "$enabled" -eq 1 ] || return 0
+              mkdir -p "$config_dir"
+              procd_open_instance
+              procd_set_param command /usr/bin/verysync
+              procd_append_param command -home "$config_dir"
+              procd_append_param command -gui-address "0.0.0.0:$port"
+              procd_set_param respawn
+              procd_close_instance
+          }
+          reload_service() { restart; }
+          service_triggers() { procd_add_reload_trigger "verysync"; }
+          EOF
+
+          cat << 'EOF' > files/usr/share/rpcd/acl.d/luci-app-verysync-nas.json
+          { "luci-app-verysync-nas": { "description": "Grant UCI access", "read": { "uci": [ "verysync" ] }, "write": { "uci": [ "verysync" ] } } }
+          EOF
+
+          cat << 'EOF' > files/usr/share/luci/menu.d/verysync-nas.json
+          { "admin/nas/verysync": { "title": "微力同步", "order": 99, "action": { "type": "view", "path": "nas/verysync" } } }
+          EOF
+
+          cat << 'EOF' > files/www/luci-static/resources/view/nas/verysync.js
+          'use strict'; 'require view'; 'require form'; 'require uci';
+          return view.extend({
+              load: function() { return uci.load('verysync'); },
+              render: function() {
+                  var m, s, o;
+                  var is_enabled = (uci.get('verysync', 'main', 'enabled') === '1');
+                  var status_html = is_enabled ? '<div style="color:#28a745; font-weight:bold; font-size:14px; display:flex; align-items:center;">▶ 运行中</div>' : '<div style="color:#dc3545; font-weight:bold; font-size:14px; display:flex; align-items:center;">■ 已停止</div>';
+                  m = new form.Map('verysync', '微力同步', '简单易用的多平台文件同步软件。');
+                  s = m.section(form.TypedSection, 'verysync');
+                  s.anonymous = true; s.addremove = false;
+                  o = s.option(form.DummyValue, '_status');
+                  o.rawhtml = true;
+                  o.cfgvalue = function() { return '<div style="display:flex; align-items:center; gap:20px; padding:15px; margin-bottom:20px; border:1px solid var(--border-color, #e5e5e5); border-radius:4px; background:var(--background-color, #fff); box-shadow:0 1px 3px rgba(0,0,0,0.05);"><div style="display:flex; align-items:center; background:#1b63b6; color:#fff; padding:3px 8px; border-radius:2px; font-weight:900; font-family:Arial; font-style:italic;">Verysync</div>' + status_html + '<button class="cbi-button cbi-button-apply" style="padding:5px 15px; font-size:13px; margin-left:10px;" onclick="window.open(window.location.protocol + \'//\' + window.location.hostname + \':8886\'); return false;">打开管理页面</button></div>'; };
+                  o = s.option(form.Flag, 'enabled', '启用'); o.rmempty = false;
+                  o = s.option(form.Value, 'port', '端口'); o.datatype = 'port'; o.rmempty = false;
+                  o = s.option(form.Value, 'config_dir', '配置文件存放路径'); o.rmempty = false;
+                  return m.render();
+              }
+          });
+          EOF
+
+          cat << 'EOF' > files/etc/config/vsftpd
+          config vsftpd 'main'
+              option enabled '1'
+              option ipv4 '1'
+              option port '21'
+              option pasv_enable '1'
+              option pasv_min_port '50000'
+              option pasv_max_port '51000'
+              option local_enable '1'
+              option write_enable '1'
+              option local_umask '022'
+              option local_root '/'
+              option anonymous_enable '0'
+              option anon_upload_enable '0'
+              option idle_session_timeout '1800'
+              option max_clients '0'
+              option max_per_ip '0'
+          EOF
+
+          cat << 'EOF' > files/etc/init.d/vsftpd
+          #!/bin/sh /etc/rc.common
+          USE_PROCD=1
+          START=99
+          start_service() {
+              config_load vsftpd
+              local enabled ipv4 port pasv_enable pasv_min pasv_max local_enable write_enable umask root_dir anon_enable anon_upload idle_timeout max_clients max_per_ip
+              config_get_bool enabled main enabled 0
+              [ "$enabled" -eq 1 ] || return 0
+              config_get_bool ipv4 main ipv4 1
+              config_get port main port "21"
+              config_get_bool pasv_enable main pasv_enable 1
+              config_get pasv_min main pasv_min_port "50000"
+              config_get pasv_max main pasv_max_port "51000"
+              config_get_bool local_enable main local_enable 1
+              config_get_bool write_enable main write_enable 1
+              config_get umask main local_umask "022"
+              config_get root_dir main local_root "/"
+              mkdir -p "$root_dir"
+              sed -i '/root/d' files/etc/ftpusers 2>/dev/null || true
+              local conf="/var/etc/vsftpd.conf"
+              mkdir -p /var/etc
+              > "$conf"
+              [ "$ipv4" -eq 1 ] && echo "listen=YES" >> "$conf"
+              echo "listen_port=$port" >> "$conf"
+              if [ "$pasv_enable" -eq 1 ]; then
+                  echo "pasv_enable=YES" >> "$conf"
+                  echo "pasv_min_port=$pasv_min" >> "$conf"
+                  echo "pasv_max_port=$pasv_max" >> "$conf"
+              else
+                  echo "pasv_enable=NO" >> "$conf"
+              fi
+              if [ "$local_enable" -eq 1 ]; then
+                  echo "local_enable=YES" >> "$conf"
+                  echo "local_root=$root_dir" >> "$conf"
+                  echo "chroot_local_user=YES" >> "$conf"
+                  echo "allow_writeable_chroot=YES" >> "$conf"
+                  echo "check_shell=NO" >> "$conf"
+                  echo "session_support=NO" >> "$conf"
+                  echo "seccomp_sandbox=NO" >> "$conf"
+              else
+                  echo "local_enable=NO" >> "$conf"
+              fi
+              [ "$write_enable" -eq 1 ] && echo "write_enable=YES" >> "$conf"
+              echo "local_umask=$umask" >> "$conf"
+              [ "$anon_enable" -eq 1 ] && echo "anonymous_enable=YES" >> "$conf" || echo "anonymous_enable=NO" >> "$conf"
+              echo "idle_session_timeout=$idle_timeout" >> "$conf"
+              echo "max_clients=$max_clients" >> "$conf"
+              echo "max_per_ip=$max_per_ip" >> "$conf"
+              echo "dirmessage_enable=YES" >> "$conf"
+              echo "use_localtime=YES" >> "$conf"
+              echo "xferlog_enable=YES" >> "$conf"
+              procd_open_instance
+              procd_set_param command /usr/sbin/vsftpd "$conf"
+              procd_set_param respawn
+              procd_close_instance
+          }
+          reload_service() { restart; }
+          service_triggers() { procd_add_reload_trigger "vsftpd"; }
+          EOF
+
+          cat << 'EOF' > files/usr/share/rpcd/acl.d/luci-app-vsftpd-nas.json
+          { "luci-app-vsftpd-nas": { "description": "Grant UCI access", "read": { "uci": [ "vsftpd" ] }, "write": { "uci": [ "vsftpd" ] } } }
+          EOF
+
+          cat << 'EOF' > files/usr/share/luci/menu.d/vsftpd-nas.json
+          { "admin/nas/vsftpd": { "title": "FTP 服务器", "order": 98, "action": { "type": "view", "path": "nas/vsftpd" } } }
+          EOF
+
+          cat << 'EOF' > files/www/luci-static/resources/view/nas/vsftpd.js
+          'use strict'; 'require view'; 'require form'; 'require uci';
+          return view.extend({
+              load: function() { return uci.load('vsftpd'); },
+              render: function() {
+                  var m, s, o;
+                  var is_enabled = (uci.get('vsftpd', 'main', 'enabled') === '1');
+                  var status_html = is_enabled ? '<div style="color:#28a745; font-weight:bold; font-size:14px; display:flex; align-items:center;">▶ 运行中</div>' : '<div style="color:#dc3545; font-weight:bold; font-size:14px; display:flex; align-items:center;">■ 已停止</div>';
+                  m = new form.Map('vsftpd', 'FTP 服务器 (vsftpd) - 专业版', '高级文件传输服务器。');
+                  s = m.section(form.TypedSection, 'vsftpd'); s.anonymous = true; s.addremove = false;
+                  s.tab('basic', '基础设置'); s.tab('users', '权限与目录'); s.tab('advanced', '连接设置');
+                  o = s.taboption('basic', form.DummyValue, '_status'); o.rawhtml = true;
+                  o.cfgvalue = function() { return '<div style="display:flex; align-items:center; gap:20px; padding:15px; margin-bottom:20px; border:1px solid var(--border-color, #e5e5e5); border-radius:4px; background:var(--background-color, #fff); box-shadow:0 1px 3px rgba(0,0,0,0.05);"><div style="display:flex; align-items:center; background:#ff8c00; color:#fff; padding:3px 8px; border-radius:2px; font-weight:bold; font-family:Arial;">FTP</div>' + status_html + '</div>'; };
+                  o = s.taboption('basic', form.Flag, 'enabled', '启用 FTP 服务'); o.rmempty = false;
+                  o = s.taboption('basic', form.Value, 'port', '监听端口', '默认 21'); o.datatype = 'port'; o.rmempty = false;
+                  o = s.taboption('basic', form.Flag, 'pasv_enable', '启用 PASV 被动模式'); o.rmempty = false;
+                  o = s.taboption('basic', form.Value, 'pasv_min_port', 'Pasv 模式最小端口'); o.datatype = 'port'; o.depends('pasv_enable', '1'); o.rmempty = false;
+                  o = s.taboption('basic', form.Value, 'pasv_max_port', 'Pasv 模式最大端口'); o.datatype = 'port'; o.depends('pasv_enable', '1'); o.rmempty = false;
+                  o = s.taboption('users', form.Value, 'local_root', '根目录路径'); o.rmempty = false;
+                  o = s.taboption('users', form.Flag, 'local_enable', '允许本地用户登录'); o.rmempty = false;
+                  o = s.taboption('users', form.Flag, 'write_enable', '允许写入/修改'); o.rmempty = false;
+                  o = s.taboption('users', form.Value, 'local_umask', '文件权限掩码', '如 022'); o.rmempty = false;
+                  o = s.taboption('advanced', form.Value, 'idle_session_timeout', '空闲连接超时'); o.datatype = 'uinteger'; o.rmempty = false;
+                  return m.render();
+              }
+          });
+          EOF
+
+          chmod +x files/etc/init.d/verysync
+          chmod +x files/etc/init.d/vsftpd
+
       - name: Download package
         id: package
         run: |
