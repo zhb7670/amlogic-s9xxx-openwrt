@@ -1,0 +1,47 @@
+msgid "Verysync"
+msgstr "微力同步"
+
+msgid "Verysync is a efficient data synchronization tool. Web interface runs on port 8886 by default."
+msgstr "微力同步是一个高效的文件同步工具。Web界面默认运行在8886端口。"
+
+msgid "Global Settings"
+msgstr "全局设置"
+
+msgid "Enable"
+msgstr "启用"
+
+msgid "Enable Verysync service"
+msgstr "启用微力同步服务"
+
+msgid "Web Interface Port"
+msgstr "Web界面端口"
+
+msgid "Port for the web interface (default: 8886)"
+msgstr "Web界面运行的端口（默认：8886）"
+
+msgid "GUI Listen Address"
+msgstr "监听地址"
+
+msgid "Address to listen on (default: 0.0.0.0)"
+msgstr "Web界面监听地址（默认：0.0.0.0，所有接口）"
+
+msgid "Config Directory"
+msgstr "配置目录"
+
+msgid "Directory to store configuration (default: /etc/verysync)"
+msgstr "存储配置的目录（默认：/etc/verysync）"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Not Running"
+msgstr "未运行"
+
+msgid "Open Web Interface"
+msgstr "打开Web界面"

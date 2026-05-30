@@ -1,0 +1,12 @@
+# Copyright (C) 2026
+# This is free software, licensed under the Apache License, Version 2.0
+
+include $(TOPDIR)/rules.mk
+
+LUCI_TITLE:=LuCI support for Verysync
+LUCI_DEPENDS:=+verysync
+LUCI_PKGARCH:=all
+
+include $(TOPDIR)/feeds/luci/luci.mk
+
+# call BuildPackage - OpenWrt buildancestors signature

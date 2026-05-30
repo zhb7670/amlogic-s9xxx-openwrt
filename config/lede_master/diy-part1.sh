@@ -21,6 +21,9 @@ git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
 
 
 
+# luci-app-verysync - 微力同步Web界面
+cp -r ${GITHUB_WORKSPACE}/luci-app-verysync package/luci-app-verysync
+
 # other
 # rm -rf package/lean/{samba4,luci-app-samba4,luci-app-ttyd}
 
